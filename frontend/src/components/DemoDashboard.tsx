@@ -255,6 +255,16 @@ export const DemoDashboard: React.FC = () => {
       setResult(data);
       setProposals(data.proposals || []);
       setEvaluationSummary(data.evaluation || null);
+
+      const hasNoText = !data.extraction?.extracted_text || !data.extraction.extracted_text.trim();
+      const hasNoProposals = !data.proposals || data.proposals.length === 0;
+      const hasNoInferred = !data.inferredQA?.items || data.inferredQA.items.length === 0;
+      const hasNoRuns = !data.evaluation?.runs || data.evaluation.runs.length === 0;
+      if (hasNoText && hasNoProposals && hasNoInferred && hasNoRuns) {
+        setError(
+          'Empty Result: No readable handwriting or diagnostic findings could be extracted from the uploaded file. Please ensure the image or PDF is clear, well-lit, and try again.'
+        );
+      }
       if (data.inferredQA?.items) {
         setInferredItems(data.inferredQA.items);
         if (data.inferredQA.assessment_id) {

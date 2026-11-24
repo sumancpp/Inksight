@@ -75,7 +75,7 @@ class Settings(BaseSettings):
     REDIS_URL: Optional[str] = None
     CELERY_BROKER_URL: str = "redis://localhost:6379/0"
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/0"
-    CELERY_TASK_ALWAYS_EAGER: bool = False
+    CELERY_TASK_ALWAYS_EAGER: Optional[bool] = None
 
     @model_validator(mode="after")
     def sync_config(self) -> "Settings":
@@ -86,6 +86,10 @@ class Settings(BaseSettings):
                 self.CELERY_BROKER_URL = self.REDIS_URL
             if self.CELERY_RESULT_BACKEND == "redis://localhost:6379/0":
                 self.CELERY_RESULT_BACKEND = self.REDIS_URL
+        if self.CELERY_TASK_ALWAYS_EAGER is None:
+            self.CELERY_TASK_ALWAYS_EAGER = (
+                self.ENVIRONMENT.lower() != "production" or not bool(self.REDIS_URL)
+            )
         return self
 
     @field_validator("ALLOWED_UPLOAD_TYPES", mode="before")

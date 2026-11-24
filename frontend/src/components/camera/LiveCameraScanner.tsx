@@ -49,11 +49,26 @@ export const LiveCameraScanner: React.FC<LiveCameraScannerProps> = ({
   }, []);
 
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const isStartingRef = useRef<boolean>(false);
+  const lastFlipTimeRef = useRef<number>(0);
   const [capturedPages, setCapturedPages] = useState<string[]>([]);
   const [activePreviewIndex, setActivePreviewIndex] = useState<number | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isCompiling, setIsCompiling] = useState<boolean>(false);
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
+
+  // Re-attach active stream whenever live <video> element mounts (e.g. after previewing)
+  useEffect(() => {
+    if (isOpen && activePreviewIndex === null && videoRef.current && streamRef.current) {
+      if (videoRef.current.srcObject !== streamRef.current) {
+        videoRef.current.srcObject = streamRef.current;
+        videoRef.current.play().catch((err) => {
+          console.warn('Video auto-play interrupted:', err);
+        });
+      }
+    }
+  }, [isOpen, activePreviewIndex, stream]);
 
   // Start / stop camera stream based on modal open state
   useEffect(() => {
@@ -72,12 +87,23 @@ export const LiveCameraScanner: React.FC<LiveCameraScannerProps> = ({
     };
   }, [isOpen, facingMode]);
 
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    setStream(null);
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+  };
+
   const startCamera = async () => {
+    if (isStartingRef.current) return;
+    isStartingRef.current = true;
     setCameraError(null);
     try {
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
-      }
+      stopCamera();
 
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         throw new Error('Camera access is not supported by your browser.');
@@ -92,6 +118,7 @@ export const LiveCameraScanner: React.FC<LiveCameraScannerProps> = ({
         audio: false,
       });
 
+      streamRef.current = mediaStream;
       setStream(mediaStream);
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
@@ -106,21 +133,19 @@ export const LiveCameraScanner: React.FC<LiveCameraScannerProps> = ({
           ? 'Camera permission was denied. Please allow camera access in your browser settings to scan documents.'
           : err.message || 'Unable to access device camera.'
       );
+    } finally {
+      isStartingRef.current = false;
     }
   };
 
-  const stopCamera = () => {
-    if (stream) {
-      stream.getTracks().forEach((track) => track.stop());
-      setStream(null);
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-  };
-
-  // Flip between front and back camera
+  // Flip between front and back camera with debounce to prevent stream breakage
   const handleFlipCamera = () => {
+    const now = Date.now();
+    if (now - lastFlipTimeRef.current < 500 || isStartingRef.current) {
+      return;
+    }
+    lastFlipTimeRef.current = now;
+    stopCamera();
     setFacingMode((prev) => (prev === 'environment' ? 'user' : 'environment'));
   };
 
@@ -148,12 +173,11 @@ export const LiveCameraScanner: React.FC<LiveCameraScannerProps> = ({
     setActivePreviewIndex(updated.length - 1); // Freeze & preview newly captured page
   };
 
-  // Add Another Page: clear active preview, resume live camera
+  // Add Another Page: clear active preview, stop old tracks, and restart live camera
   const handleAddAnotherPage = () => {
+    stopCamera();
     setActivePreviewIndex(null);
-    if (!stream) {
-      startCamera();
-    }
+    startCamera();
   };
 
   // Retake current preview page
@@ -298,6 +322,7 @@ export const LiveCameraScanner: React.FC<LiveCameraScannerProps> = ({
           justifyContent: 'center',
           overflow: 'hidden',
           background: '#090d16',
+          paddingBottom: '96px',
         }}
       >
         {cameraError ? (
@@ -493,6 +518,11 @@ export const LiveCameraScanner: React.FC<LiveCameraScannerProps> = ({
       <div
         className="scanner-bottom-bar"
         style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          width: '100%',
+          zIndex: 10000,
           padding: '16px 20px',
           paddingBottom: 'max(16px, env(safe-area-inset-bottom))',
           background: 'rgba(15, 23, 42, 0.95)',
