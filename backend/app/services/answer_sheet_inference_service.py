@@ -100,6 +100,7 @@ class AnswerSheetInferenceService:
         db: Session,
         upload_id: int,
         current_user: User,
+        difficulty: str = "Medium",
     ) -> InferredQAResponse:
         """
         Zero-Question-Paper Analysis:
@@ -186,6 +187,7 @@ class AnswerSheetInferenceService:
                         {
                             "role": "user",
                             "content": (
+                                f"Test Difficulty / Grading Strictness: {difficulty}\n"
                                 f"Analyze this student answer script and return the JSON object with inferred questions:\n\n"
                                 f"{cleaned_text}"
                             ),

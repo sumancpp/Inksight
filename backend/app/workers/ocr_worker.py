@@ -3,9 +3,16 @@ Celery worker tasks for background OCR extraction and AI diagnostic evaluation.
 """
 import asyncio
 import concurrent.futures
-from typing import Any, Dict
+import threading
+import uuid
+from types import SimpleNamespace
+from typing import Any, Dict, Optional
+
+from fastapi import BackgroundTasks
+import redis as redis_lib
 
 from app.core.celery_app import celery_app
+from app.core.config import settings
 from app.core.database import SessionLocal
 from app.core.logging import logger
 from app.models.enums import UploadStatus
@@ -13,6 +20,20 @@ from app.repositories.submission_repository import submission_repository
 from app.repositories.upload_repository import upload_repository
 from app.services.evaluation_service import evaluation_service
 from app.services.ocr_service import ocr_processing_service
+
+_LOCAL_TASK_RESULTS: Dict[str, Dict[str, Any]] = {}
+_LOCAL_TASK_LOCK = threading.Lock()
+
+
+def get_local_task_status(task_id: str) -> Optional[Dict[str, Any]]:
+    with _LOCAL_TASK_LOCK:
+        entry = _LOCAL_TASK_RESULTS.get(task_id)
+        return dict(entry) if entry is not None else None
+
+
+def _set_local_task_status(task_id: str, payload: Dict[str, Any]) -> None:
+    with _LOCAL_TASK_LOCK:
+        _LOCAL_TASK_RESULTS[task_id] = payload
 
 
 def _safe_update_state(task_self, state: str, meta: Dict[str, Any]) -> None:
@@ -126,23 +147,99 @@ def process_ocr_and_evaluate_task(self, submission_id: int) -> Dict[str, Any]:
             db.close()
 
 
-def dispatch_ocr_and_evaluate(submission_id: int):
+def run_ocr_and_evaluate_local(task_id: str, submission_id: int) -> Dict[str, Any]:
+    """
+    Executes OCR & evaluation in-process (eagerly or via FastAPI BackgroundTasks)
+    and records status/results in _LOCAL_TASK_RESULTS so task-status polling resolves.
+    """
+    _set_local_task_status(
+        task_id,
+        {
+            "status": "STARTED",
+            "ready": False,
+            "successful": None,
+            "result": {"step": "Running OCR & AI evaluation...", "submission_id": submission_id},
+            "findings": None,
+            "error": None,
+        },
+    )
+    orig_backend = celery_app.conf.result_backend
+    orig_eager = celery_app.conf.task_always_eager
+    celery_app.conf.result_backend = "cache+memory://"
+    celery_app.conf.task_always_eager = True
+    try:
+        async_res = process_ocr_and_evaluate_task.apply(args=[submission_id], task_id=task_id)
+        result = async_res.result
+        if isinstance(result, Exception):
+            raise result
+        findings = result.get("findings") if isinstance(result, dict) else None
+        _set_local_task_status(
+            task_id,
+            {
+                "status": "SUCCESS",
+                "ready": True,
+                "successful": True,
+                "result": result,
+                "findings": findings,
+                "error": None,
+            },
+        )
+        return result if isinstance(result, dict) else {}
+    except Exception as exc:
+        logger.error(f"[LocalWorker] Task={task_id} failed for submission_id={submission_id}: {exc}")
+        _set_local_task_status(
+            task_id,
+            {
+                "status": "FAILURE",
+                "ready": True,
+                "successful": False,
+                "result": None,
+                "findings": None,
+                "error": str(exc),
+            },
+        )
+        return {"status": "FAILURE", "error": str(exc)}
+    finally:
+        celery_app.conf.result_backend = orig_backend
+        celery_app.conf.task_always_eager = orig_eager
+
+
+def dispatch_ocr_and_evaluate(
+    submission_id: int,
+    background_tasks: Optional[BackgroundTasks] = None,
+):
     """
     Dispatches task to Celery worker via Redis broker.
-    If Redis broker is unreachable, safely falls back to eager in-memory execution.
+    - If CELERY_TASK_ALWAYS_EAGER is True: runs synchronously and stores local status.
+    - If Redis broker is unreachable: falls back to FastAPI BackgroundTasks (or synchronous).
     """
+    if getattr(settings, "CELERY_TASK_ALWAYS_EAGER", False) or celery_app.conf.task_always_eager:
+        task_id = str(uuid.uuid4())
+        run_ocr_and_evaluate_local(task_id, submission_id)
+        return SimpleNamespace(id=task_id)
+
     try:
+        client = redis_lib.from_url(settings.CELERY_BROKER_URL, socket_connect_timeout=1.0)
+        client.ping()
         return process_ocr_and_evaluate_task.delay(submission_id)
     except Exception as exc:
         logger.warning(
-            f"[Celery] Redis broker unavailable ({exc}). Executing eagerly in-memory."
+            f"[Celery] Redis broker unavailable ({exc}). Falling back to FastAPI BackgroundTasks."
         )
-        orig_backend = celery_app.conf.result_backend
-        orig_eager = celery_app.conf.task_always_eager
-        celery_app.conf.result_backend = "cache+memory://"
-        celery_app.conf.task_always_eager = True
-        try:
-            return process_ocr_and_evaluate_task.apply(args=[submission_id])
-        finally:
-            celery_app.conf.result_backend = orig_backend
-            celery_app.conf.task_always_eager = orig_eager
+        task_id = str(uuid.uuid4())
+        if background_tasks is not None:
+            _set_local_task_status(
+                task_id,
+                {
+                    "status": "PENDING",
+                    "ready": False,
+                    "successful": None,
+                    "result": {"step": "Queued in local background worker...", "submission_id": submission_id},
+                    "findings": None,
+                    "error": None,
+                },
+            )
+            background_tasks.add_task(run_ocr_and_evaluate_local, task_id, submission_id)
+        else:
+            run_ocr_and_evaluate_local(task_id, submission_id)
+        return SimpleNamespace(id=task_id)

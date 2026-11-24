@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { api } from '../services/api';
 import { EvaluationFindingCard } from './evaluation/EvaluationFindingCard';
+import { ResultsSpreadsheetTable } from './evaluation/ResultsSpreadsheetTable';
 import { InterventionOutcomesView } from './teacher/InterventionOutcomesView';
 import { CircularProgressRing } from './common/CircularProgressRing';
 import { LiveCameraScanner } from './camera/LiveCameraScanner';
@@ -109,6 +110,9 @@ export const DemoDashboard: React.FC = () => {
 
   // Answer-Sheet-Only Mode (Zero Question Paper) State
   const [isAnswerSheetOnly, setIsAnswerSheetOnly] = useState<boolean>(true);
+  const [testDifficulty, setTestDifficulty] = useState<'Easy' | 'Medium' | 'Hard'>('Medium');
+  const [emailSending, setEmailSending] = useState<boolean>(false);
+  const [emailStatusMsg, setEmailStatusMsg] = useState<string | null>(null);
   const [inferredItems, setInferredItems] = useState<InferredQAItem[]>([]);
   const [isInferredLoading, setIsInferredLoading] = useState<boolean>(false);
   const [editingInferredIndex, setEditingInferredIndex] = useState<number | null>(null);
@@ -245,6 +249,7 @@ export const DemoDashboard: React.FC = () => {
           signal: controller.signal,
           assessmentId: isAnswerSheetOnly ? undefined : (selectedAssessmentId ? Number(selectedAssessmentId) : undefined),
           answerSheetOnly: isAnswerSheetOnly,
+          difficulty: testDifficulty,
         }
       );
       setResult(data);
@@ -386,6 +391,21 @@ export const DemoDashboard: React.FC = () => {
     }
   };
 
+  const handleSendEmail = async () => {
+    const subId = result?.upload?.submission_id;
+    if (!subId) return;
+    setEmailSending(true);
+    setEmailStatusMsg(null);
+    try {
+      const res = await api.sendResultsEmail(subId);
+      setEmailStatusMsg(res.message || 'Email sent successfully');
+    } catch (err: any) {
+      setReviewNotice({ type: 'error', message: err?.message || 'Failed to send email.' });
+    } finally {
+      setEmailSending(false);
+    }
+  };
+
   const handleApproveProposal = async (proposalId: number) => {
     setReviewNotice(null);
     try {
@@ -475,7 +495,7 @@ export const DemoDashboard: React.FC = () => {
     setIsInferredLoading(true);
     setReviewNotice(null);
     try {
-      const res = await api.inferQuestionsFromAnswerSheet(targetUploadId);
+      const res = await api.inferQuestionsFromAnswerSheet(targetUploadId, testDifficulty);
       setInferredItems(res.items || []);
       setReviewNotice({
         type: 'success',
@@ -1279,6 +1299,33 @@ export const DemoDashboard: React.FC = () => {
               🔗 Standard Mode
             </button>
           </div>
+
+          <div className="difficulty-selector-group" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+            <label htmlFor="test-difficulty-select" style={{ fontSize: '0.82rem', fontWeight: 600, color: '#475569' }}>
+              Test Difficulty:
+            </label>
+            <select
+              id="test-difficulty-select"
+              data-testid="test-difficulty-select"
+              className="form-select form-select-sm"
+              value={testDifficulty}
+              onChange={(e) => setTestDifficulty(e.target.value as 'Easy' | 'Medium' | 'Hard')}
+              style={{
+                padding: '6px 10px',
+                borderRadius: '8px',
+                border: '1px solid #cbd5e1',
+                background: '#ffffff',
+                fontSize: '0.84rem',
+                fontWeight: 600,
+                color: '#0f172a',
+                minHeight: '36px',
+              }}
+            >
+              <option value="Easy">Easy (Lenient)</option>
+              <option value="Medium">Medium (Standard)</option>
+              <option value="Hard">Hard (Strict)</option>
+            </select>
+          </div>
         </div>
 
         {/* Dual Input Modes: Option A (Interactive Upload/Dropzone) vs Option B (Live Camera Scan) */}
@@ -1580,15 +1627,15 @@ export const DemoDashboard: React.FC = () => {
         {/* Progress & Processing Stepper */}
         {isProcessing && (
           <div className="processing-progress-card" style={{ marginTop: '16px' }}>
-            <div className="progress-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span className="current-step-label">
+            <div className="progress-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+              <span className="current-step-label" style={{ overflowWrap: 'break-word', wordBreak: 'break-word', whiteSpace: 'normal' }}>
                 Step {stepNumber || 1} of 7: {currentStep || 'Initializing pipeline...'}
               </span>
               <button
                 type="button"
-                className="btn btn-secondary btn-sm"
+                className="btn btn-secondary btn-sm stop-waiting-btn"
                 onClick={handleStopWaiting}
-                style={{ fontSize: '11px', padding: '4px 8px' }}
+                style={{ fontSize: '0.78rem', padding: '6px 12px', minHeight: '36px' }}
                 title="Stop client polling while backend continues running in background"
               >
                 Stop Waiting
@@ -1724,13 +1771,25 @@ export const DemoDashboard: React.FC = () => {
                 </div>
               )}
               {activeTab === 'analysis' && result.upload?.submission_id && (
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => refreshEvaluations(result.upload.submission_id)}
-                >
-                  🔄 Refresh Findings
-                </button>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    data-testid="send-email-btn"
+                    className="btn btn-primary btn-sm"
+                    onClick={handleSendEmail}
+                    disabled={emailSending}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    {emailSending ? <span className="spinner" /> : '📧 Send Email to Student'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => refreshEvaluations(result.upload.submission_id)}
+                  >
+                    🔄 Refresh Findings
+                  </button>
+                </div>
               )}
               {activeTab === 'remediations' && result.upload?.submission_id && (
                 <button
@@ -2223,11 +2282,22 @@ export const DemoDashboard: React.FC = () => {
                 </div>
               </div>
 
-              <div className="alert alert-info" style={{ fontSize: '0.85rem', marginBottom: '16px' }}>
-                <div style={{ fontWeight: 600, marginBottom: '4px' }}>
+              <div
+                className="alert alert-info teacher-verification-alert"
+                style={{
+                  fontSize: '0.85rem',
+                  marginBottom: '16px',
+                  padding: '14px 16px',
+                  wordBreak: 'break-word',
+                  overflowWrap: 'break-word',
+                  whiteSpace: 'normal',
+                  lineHeight: 1.55,
+                }}
+              >
+                <div style={{ fontWeight: 600, marginBottom: '6px' }}>
                   🛡️ Teacher Verification Workflow &amp; Mathematical Safeguard
                 </div>
-                <div>
+                <div style={{ wordBreak: 'break-word', overflowWrap: 'break-word', whiteSpace: 'normal' }}>
                   Review OCR-extracted segment matches against assessment questions. <strong>Important:</strong> OCR confidence reflects visual character recognition fidelity, <em>never</em> mathematical correctness. Standard OCR dismantles fractions, exponents, and 2D matrix rows. Verify formulas and notation against the source before approving. Only teacher-approved/corrected answers are evaluated by the AI diagnostic engine.
                 </div>
               </div>
@@ -2504,6 +2574,17 @@ export const DemoDashboard: React.FC = () => {
 
             return (
               <div className="tab-content analysis-tab-content">
+                {emailStatusMsg && (
+                  <div className="alert alert-success" style={{ marginBottom: '14px' }}>
+                    ✓ {emailStatusMsg}
+                  </div>
+                )}
+
+                <ResultsSpreadsheetTable
+                  evaluationSummary={evaluationSummary}
+                  inferredItems={inferredItems}
+                />
+
                 <div className="meta-bar">
                   <div className="meta-item">
                     <span className="meta-label">AI Engine:</span>

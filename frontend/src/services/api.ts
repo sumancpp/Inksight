@@ -303,9 +303,10 @@ export const api = {
   },
 
   // Answer-Sheet-Only Mode (Zero Question Paper)
-  async inferQuestionsFromAnswerSheet(uploadId: number): Promise<InferredQAResponse> {
+  async inferQuestionsFromAnswerSheet(uploadId: number, difficulty?: string): Promise<InferredQAResponse> {
+    const query = difficulty ? `?difficulty=${encodeURIComponent(difficulty)}` : '';
     try {
-      return await request<InferredQAResponse>(`/api/v1/answer-sheets/${uploadId}/infer-questions`, {
+      return await request<InferredQAResponse>(`/api/v1/answer-sheets/${uploadId}/infer-questions${query}`, {
         method: 'POST',
       });
     } catch (err: any) {
@@ -430,6 +431,16 @@ export const api = {
       await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
     }
     throw new Error('Background task polling timed out.');
+  },
+
+  async sendResultsEmail(
+    submissionId: number,
+    recipientEmail?: string
+  ): Promise<{ status: string; submission_id: number; recipient_email: string; message: string }> {
+    const query = recipientEmail ? `?recipient_email=${encodeURIComponent(recipientEmail)}` : '';
+    return request(`/api/v1/results/${submissionId}/email${query}`, {
+      method: 'POST',
+    });
   },
 
   // Evaluations
@@ -730,6 +741,7 @@ export const api = {
       maxWaitSeconds?: number;
       assessmentId?: number;
       answerSheetOnly?: boolean;
+      difficulty?: 'Easy' | 'Medium' | 'Hard';
     }
   ): Promise<{
     upload: AnswerSheetUpload;
@@ -874,7 +886,7 @@ export const api = {
 
     if (options?.answerSheetOnly) {
       notify('Inferring questions & evaluating answers directly from student sheet...', 6, { uploadId: upload.id });
-      const inferredQA = await this.inferQuestionsFromAnswerSheet(upload.id);
+      const inferredQA = await this.inferQuestionsFromAnswerSheet(upload.id, options.difficulty);
 
       notify('Exam questions and diagnostic evaluations ready', 7, { uploadId: upload.id });
 

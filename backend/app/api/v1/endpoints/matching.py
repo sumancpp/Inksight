@@ -255,6 +255,7 @@ def reject_proposed_answer(
 )
 async def infer_questions_from_answer_sheet(
     upload_id: int,
+    difficulty: str = Query(default="Medium", description="Test difficulty / grading strictness (Easy, Medium, Hard)"),
     current_user: User = Depends(require_teacher),
     db: Session = Depends(get_db),
 ) -> InferredQAResponse:
@@ -265,7 +266,7 @@ async def infer_questions_from_answer_sheet(
     and removes 300+ unnumbered segment clutter.
     """
     return await answer_sheet_inference_service.infer_questions_from_answer_sheet(
-        db=db, upload_id=upload_id, current_user=current_user
+        db=db, upload_id=upload_id, current_user=current_user, difficulty=difficulty
     )
 
 

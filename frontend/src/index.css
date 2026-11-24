@@ -1618,6 +1618,42 @@ tr:hover td {
     height: 74% !important;
     border-radius: 12px !important;
   }
+
+  /* Processing Status Stepper Vertical Layout & Stop Waiting Button */
+  .progress-header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
+
+  .stop-waiting-btn {
+    width: 100% !important;
+    min-height: 44px !important;
+    justify-content: center !important;
+  }
+
+  /* Difficulty Selector & Analyze CTA */
+  .difficulty-selector-group {
+    width: 100% !important;
+    justify-content: space-between !important;
+  }
+
+  .difficulty-selector-group select {
+    flex: 1 !important;
+    min-height: 44px !important;
+  }
+
+  [data-testid="analyze-btn"] {
+    width: 100% !important;
+    min-height: 48px !important;
+  }
+
+  .teacher-verification-alert {
+    padding: 12px 14px !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+    white-space: normal !important;
+  }
 }
 
 @media (max-width: 480px) {

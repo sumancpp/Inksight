@@ -176,6 +176,14 @@ class VLLMEvaluator(BaseEvaluator):
         ]
         if payload.question_type:
             parts.append(f"Question Type: {payload.question_type}")
+        if payload.difficulty:
+            strictness_map = {
+                "Easy": "Lenient grading — award partial credit generously for conceptual understanding even if minor notation is missing.",
+                "Medium": "Standard balanced academic grading — reward clear reasoning and deduct for missing key steps or errors.",
+                "Hard": "Strict rigorous grading — require exact notation, complete step-by-step justification, and full precision.",
+            }
+            guidance = strictness_map.get(payload.difficulty, strictness_map["Medium"])
+            parts.append(f"Test Difficulty / Grading Strictness: {payload.difficulty} ({guidance})")
         if payload.topic_name:
             parts.append(f"Topic Context:\n{payload.topic_name.strip()}")
         if payload.expected_answer:

@@ -21,6 +21,7 @@ class EvaluationInput(BaseModel):
     student_answer: str
     marks: float = 1.0
     question_type: Optional[str] = None
+    difficulty: Optional[str] = "Medium"
 
 
 class EvaluationResult(BaseModel):

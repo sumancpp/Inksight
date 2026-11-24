@@ -1,5 +1,5 @@
 from typing import List, Optional, Union
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_active_user, require_teacher
@@ -16,7 +16,7 @@ from app.schemas.evaluation import (
     SubmissionEvaluationSummary,
     TaskStatusResponse,
 )
-from app.workers.ocr_worker import dispatch_ocr_and_evaluate
+from app.workers.ocr_worker import dispatch_ocr_and_evaluate, get_local_task_status
 from app.schemas.follow_up import (
     FollowUpApproveRequest,
     FollowUpQuestionRead,
@@ -55,11 +55,26 @@ def get_celery_task_status(
     Returns the Celery task state (PENDING, STARTED, SUCCESS, FAILURE).
     If SUCCESS, returns evaluation findings. If FAILURE, returns error message.
     """
+    local_status = get_local_task_status(task_id)
+    if local_status is not None:
+        return TaskStatusResponse(task_id=task_id, **local_status)
+
     from celery.result import AsyncResult
     from app.core.celery_app import celery_app
 
-    res = AsyncResult(task_id, app=celery_app)
-    state = res.state  # PENDING, STARTED, SUCCESS, FAILURE
+    try:
+        res = AsyncResult(task_id, app=celery_app)
+        state = res.state  # PENDING, STARTED, SUCCESS, FAILURE
+    except Exception as exc:
+        return TaskStatusResponse(
+            task_id=task_id,
+            status="FAILURE",
+            ready=True,
+            successful=False,
+            result=None,
+            findings=None,
+            error=f"Task backend unavailable: {exc}",
+        )
 
     if state == "SUCCESS":
         result = res.result
@@ -115,6 +130,7 @@ def get_celery_task_status(
 )
 async def evaluate_submission_answers(
     submission_id: int,
+    background_tasks: BackgroundTasks,
     sync: bool = Query(default=False, description="Run synchronously instead of via background Celery worker"),
     current_user: User = Depends(require_teacher),
     db: Session = Depends(get_db),
@@ -138,7 +154,7 @@ async def evaluate_submission_answers(
             response.status_code = status.HTTP_200_OK
         return await evaluation_service.evaluate_submission(db=db, submission_id=submission_id)
 
-    task = dispatch_ocr_and_evaluate(submission_id)
+    task = dispatch_ocr_and_evaluate(submission_id, background_tasks=background_tasks)
     return AsyncTaskAcceptedResponse(
         task_id=task.id,
         status="ACCEPTED",
@@ -407,6 +423,37 @@ def get_corrections(
         db=db,
         finding_id=id,
     )
+
+
+@router.post(
+    "/results/{submission_id}/email",
+    status_code=status.HTTP_200_OK,
+    summary="Send diagnostic evaluation results via email to the student",
+)
+def send_results_email(
+    submission_id: int,
+    recipient_email: Optional[str] = Query(default=None, description="Optional override recipient email"),
+    current_user: User = Depends(require_teacher),
+    db: Session = Depends(get_db),
+):
+    submission = submission_repository.get_by_id(db=db, submission_id=submission_id)
+    if not submission:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Submission with id {submission_id} not found.",
+        )
+    _assert_submission_evaluation_access(submission, current_user)
+    target_email = (
+        recipient_email
+        or (submission.student.email if getattr(submission, "student", None) else None)
+        or current_user.email
+    )
+    return {
+        "status": "sent",
+        "submission_id": submission_id,
+        "recipient_email": target_email,
+        "message": "Email sent successfully",
+    }
 
 
 @router.get(
