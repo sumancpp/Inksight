@@ -40,5 +40,5 @@ RUN mkdir -p /app/uploads
 # Expose FastAPI service port
 EXPOSE 8000
 
-# Default entrypoint runs FastAPI server with uvicorn
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Automatically run database migrations before starting the web server
+CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
