@@ -349,7 +349,11 @@ export const EvaluationFindingCard: React.FC<EvaluationFindingCardProps> = ({
   const activeEvidence = getActiveCorrection('evidence_excerpt');
 
   return (
-    <div className="finding-card finding-card-modern glass-card" data-testid={`finding-card-${finding.id}`}>
+    <div
+      className="finding-card finding-card-modern glass-card"
+      data-testid={`finding-card-${finding.id}`}
+      style={{ overflowWrap: 'break-word', wordBreak: 'break-word', maxWidth: '100%' }}
+    >
       {/* Header Bar */}
       <div className="finding-card-header">
         <div className="finding-concept" style={{ flexWrap: 'wrap', gap: '6px' }}>

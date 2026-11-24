@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { jsPDF } from 'jspdf';
 
 export interface LiveCameraScannerProps {
@@ -41,6 +42,11 @@ export const LiveCameraScanner: React.FC<LiveCameraScannerProps> = ({
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [capturedPages, setCapturedPages] = useState<string[]>([]);
@@ -181,18 +187,20 @@ export const LiveCameraScanner: React.FC<LiveCameraScannerProps> = ({
 
   const isPreviewing = activePreviewIndex !== null && capturedPages[activePreviewIndex];
 
-  return (
+  const modalContent = (
     <div
       data-testid="camera-scanner-modal"
       className="camera-scanner-overlay"
       style={{
         position: 'fixed',
-        inset: 0,
+        top: 0,
+        left: 0,
+        width: '100vw',
+        height: '100vh',
         zIndex: 9999,
-        background: 'rgba(15, 23, 42, 0.95)',
+        backgroundColor: '#000000',
         display: 'flex',
         flexDirection: 'column',
-        backdropFilter: 'blur(8px)',
         color: '#ffffff',
       }}
     >
@@ -377,7 +385,7 @@ export const LiveCameraScanner: React.FC<LiveCameraScannerProps> = ({
               style={{
                 width: '100%',
                 height: '100%',
-                objectFit: 'contain',
+                objectFit: 'cover',
               }}
             />
 
@@ -604,4 +612,10 @@ export const LiveCameraScanner: React.FC<LiveCameraScannerProps> = ({
       </div>
     </div>
   );
+
+  if (isMounted && typeof document !== 'undefined' && document.body) {
+    return createPortal(modalContent, document.body);
+  }
+
+  return modalContent;
 };

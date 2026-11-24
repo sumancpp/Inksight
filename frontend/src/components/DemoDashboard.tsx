@@ -307,9 +307,14 @@ export const DemoDashboard: React.FC = () => {
       } else {
         console.error('Document Analysis Pipeline Error:', err);
         const is403 = err.status === 403 || err.message?.includes('403') || err.message?.includes('Operation not permitted');
+        const is500 = err.status === 500 || err.message?.includes('500') || err.message?.includes('Internal Server Error');
         if (is403) {
           setError(
             'Authorization Error (403): You do not have permission to submit to this assessment or upload files. Ensure you are signed in with the authorized teacher account and that the target assessment has an active submission.'
+          );
+        } else if (is500) {
+          setError(
+            `Server Error (500): The backend encountered an unexpected error while analyzing your document. ${err.message ? `Details: ${String(err.message).slice(0, 220)}` : 'Please try again shortly.'}`
           );
         } else {
           setError(
@@ -326,7 +331,11 @@ export const DemoDashboard: React.FC = () => {
 
   const handleProcess = async () => {
     if (!selectedFile) return;
-    await processDocument(selectedFile);
+    try {
+      await processDocument(selectedFile);
+    } catch (err: any) {
+      setError(err?.message || 'An unexpected error occurred while processing the document.');
+    }
   };
 
   const handleCameraScanComplete = async (file: File) => {
@@ -1546,9 +1555,18 @@ export const DemoDashboard: React.FC = () => {
 
         {/* Error, Stopped Waiting & Status Messages */}
         {error && (
-          <div className="alert alert-danger" style={{ marginTop: '16px' }}>
+          <div
+            className="alert alert-danger"
+            role="alert"
+            style={{
+              marginTop: '16px',
+              maxWidth: '100%',
+              overflowWrap: 'break-word',
+              wordBreak: 'break-word',
+            }}
+          >
             <div style={{ fontWeight: 600, marginBottom: '4px' }}>Processing Failed</div>
-            <div>{error}</div>
+            <div style={{ overflowWrap: 'break-word', wordBreak: 'break-word' }}>{error}</div>
           </div>
         )}
 
