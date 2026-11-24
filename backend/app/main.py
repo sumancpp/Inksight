@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 import time
 from fastapi import FastAPI, Request, status
 from fastapi.encoders import jsonable_encoder
@@ -140,6 +141,71 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
         },
     )
     return _add_cors_headers(request, response)
+
+
+def auto_seed_demo_user() -> None:
+    """
+    Idempotently seeds the demo teacher users and initial data on application startup.
+    Runs safely on every restart: if the demo user already exists, it does nothing.
+    """
+    from app.core.database import SessionLocal
+    from app.core.security import hash_password
+    from app.models.enums import UserRole
+    from app.models.user import User
+
+    db = SessionLocal()
+    try:
+        # Check and create primary demo teacher: smith@learngraph.edu
+        smith = db.query(User).filter(User.email == "smith@learngraph.edu").first()
+        if not smith:
+            logger.info("Auto-seeding demo teacher user: smith@learngraph.edu")
+            smith = User(
+                email="smith@learngraph.edu",
+                full_name="Dr. Smith",
+                role=UserRole.TEACHER.value,
+                hashed_password=hash_password("teacher123"),
+                is_active=True,
+            )
+            db.add(smith)
+            db.commit()
+            db.refresh(smith)
+            logger.info(f"Successfully auto-seeded demo teacher smith@learngraph.edu (id={smith.id})")
+
+        # Also create smith@inksight.edu for the Inksight rebrand
+        smith_inksight = db.query(User).filter(User.email == "smith@inksight.edu").first()
+        if not smith_inksight:
+            logger.info("Auto-seeding demo teacher user: smith@inksight.edu")
+            smith_inksight = User(
+                email="smith@inksight.edu",
+                full_name="Dr. Smith",
+                role=UserRole.TEACHER.value,
+                hashed_password=hash_password("teacher123"),
+                is_active=True,
+            )
+            db.add(smith_inksight)
+            db.commit()
+            logger.info(f"Successfully auto-seeded demo teacher smith@inksight.edu (id={smith_inksight.id})")
+
+        # If database has zero assessments, optionally seed initial cluster demo data
+        from app.models.assessment import Assessment
+        if db.query(Assessment).count() == 0:
+            logger.info("Zero assessments detected in database. Seeding initial demo assessment and clusters...")
+            try:
+                from scripts.seed_cluster_demo import seed_cluster_demo
+                seed_cluster_demo(db, force=True)
+                logger.info("Successfully seeded initial demo assessment, topics, and misconception clusters.")
+            except Exception as seed_err:
+                logger.warning(f"Optional assessment seeding skipped/failed: {seed_err}")
+    except Exception as exc:
+        db.rollback()
+        logger.error(f"Failed to auto-seed demo teacher user on startup: {exc}", exc_info=True)
+    finally:
+        db.close()
+
+
+@app.on_event("startup")
+def on_startup() -> None:
+    auto_seed_demo_user()
 
 
 # Root health check endpoint
