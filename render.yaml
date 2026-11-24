@@ -1,0 +1,178 @@
+# ==========================================
+# Inksight Cloud Deployment Blueprint (Render)
+# Docs: https://render.com/docs/blueprint-spec
+# ==========================================
+
+services:
+  # ----------------------------------------
+  # 1. FastAPI Web Backend Service
+  # ----------------------------------------
+  - type: web
+    name: inksight-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: starter
+    region: oregon
+    numInstances: 1
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: false
+      - key: PROJECT_NAME
+        value: Inksight
+      - key: API_V1_STR
+        value: /api/v1
+
+      # Security & Authentication
+      - key: SECRET_KEY
+        generateValue: true
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: JWT_ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: 120
+
+      # Database Configuration (Supabase PostgreSQL)
+      - key: DATABASE_URL
+        sync: false
+
+      # Redis & Celery Background Queue (Upstash Redis)
+      - key: REDIS_URL
+        sync: false
+      - key: CELERY_BROKER_URL
+        sync: false
+      - key: CELERY_RESULT_BACKEND
+        sync: false
+      - key: CELERY_TASK_ALWAYS_EAGER
+        value: false
+
+      # Cloud File Storage (Cloudflare R2 or AWS S3)
+      - key: STORAGE_BACKEND
+        value: s3
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_REGION
+        value: auto
+      - key: S3_BUCKET_NAME
+        sync: false
+      - key: S3_ENDPOINT_URL
+        sync: false
+      - key: MAX_UPLOAD_SIZE_MB
+        value: 15
+
+      # OCR & AI Diagnostic Engine (Groq / vLLM)
+      - key: OCR_PROVIDER
+        value: mock
+      - key: EVALUATOR_PROVIDER
+        value: vllm
+      - key: VLLM_BASE_URL
+        value: https://api.groq.com/openai/v1
+      - key: VLLM_MODEL
+        value: llama-3.3-70b-versatile
+      - key: VLLM_API_KEY
+        sync: false
+      - key: ENABLE_EVALUATOR_FALLBACK
+        value: true
+      - key: ENABLE_DEMO_ENDPOINTS
+        value: true
+
+      # CORS Configuration (Vercel Frontend URLs)
+      - key: BACKEND_CORS_ORIGINS
+        value: https://inksight.vercel.app,https://inksight-frontend.vercel.app
+
+  # ----------------------------------------
+  # 2. Celery Asynchronous Background Worker
+  # ----------------------------------------
+  - type: worker
+    name: inksight-celery-worker
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    dockerCommand: celery -A app.core.celery_app worker --loglevel=info --concurrency=2
+    plan: starter
+    region: oregon
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DATABASE_URL
+        fromService:
+          type: web
+          name: inksight-backend
+          envVarKey: DATABASE_URL
+      - key: SECRET_KEY
+        fromService:
+          type: web
+          name: inksight-backend
+          envVarKey: SECRET_KEY
+      - key: JWT_SECRET_KEY
+        fromService:
+          type: web
+          name: inksight-backend
+          envVarKey: JWT_SECRET_KEY
+      - key: REDIS_URL
+        fromService:
+          type: web
+          name: inksight-backend
+          envVarKey: REDIS_URL
+      - key: CELERY_BROKER_URL
+        fromService:
+          type: web
+          name: inksight-backend
+          envVarKey: CELERY_BROKER_URL
+      - key: CELERY_RESULT_BACKEND
+        fromService:
+          type: web
+          name: inksight-backend
+          envVarKey: CELERY_RESULT_BACKEND
+      - key: CELERY_TASK_ALWAYS_EAGER
+        value: false
+      - key: STORAGE_BACKEND
+        value: s3
+      - key: AWS_ACCESS_KEY_ID
+        fromService:
+          type: web
+          name: inksight-backend
+          envVarKey: AWS_ACCESS_KEY_ID
+      - key: AWS_SECRET_ACCESS_KEY
+        fromService:
+          type: web
+          name: inksight-backend
+          envVarKey: AWS_SECRET_ACCESS_KEY
+      - key: AWS_REGION
+        fromService:
+          type: web
+          name: inksight-backend
+          envVarKey: AWS_REGION
+      - key: S3_BUCKET_NAME
+        fromService:
+          type: web
+          name: inksight-backend
+          envVarKey: S3_BUCKET_NAME
+      - key: S3_ENDPOINT_URL
+        fromService:
+          type: web
+          name: inksight-backend
+          envVarKey: S3_ENDPOINT_URL
+      - key: OCR_PROVIDER
+        value: mock
+      - key: EVALUATOR_PROVIDER
+        value: vllm
+      - key: VLLM_BASE_URL
+        value: https://api.groq.com/openai/v1
+      - key: VLLM_MODEL
+        value: llama-3.3-70b-versatile
+      - key: VLLM_API_KEY
+        fromService:
+          type: web
+          name: inksight-backend
+          envVarKey: VLLM_API_KEY
+      - key: ENABLE_EVALUATOR_FALLBACK
+        value: true

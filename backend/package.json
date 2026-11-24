@@ -1,0 +1,11 @@
+{
+  "name": "learngraph-backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "LearnGraph FastAPI backend service",
+  "scripts": {
+    "dev": "bash -c 'fuser -k 8000/tcp 2>/dev/null || true; if [ -f .venv/bin/uvicorn ]; then .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload; elif command -v uvicorn >/dev/null 2>&1; then uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload; else python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload; fi'",
+    "start": "bash -c 'fuser -k 8000/tcp 2>/dev/null || true; if [ -f .venv/bin/uvicorn ]; then .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000; elif command -v uvicorn >/dev/null 2>&1; then uvicorn app.main:app --host 127.0.0.1 --port 8000; else python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000; fi'",
+    "test": "bash -c 'if [ -f .venv/bin/pytest ]; then .venv/bin/pytest tests/; else pytest tests/; fi'"
+  }
+}

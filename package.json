@@ -1,0 +1,16 @@
+{
+  "name": "learngraph",
+  "version": "0.1.0",
+  "private": true,
+  "description": "LearnGraph: Evidence-Driven Learning Intelligence & Formative Intervention Platform",
+  "scripts": {
+    "dev": "npm --prefix backend run dev",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "start": "npm --prefix backend run start",
+    "test:backend": "npm --prefix backend run test",
+    "test:frontend": "npm --prefix frontend run test",
+    "build:frontend": "npm --prefix frontend run build"
+  }
+}
+
