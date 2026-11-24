@@ -990,7 +990,7 @@ export const EvaluationFindingCard: React.FC<EvaluationFindingCardProps> = ({
         )}
 
         {/* Clean Action Bar */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+        <div className="finding-card-actions-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
           <button
             type="button"
             className="btn btn-ghost btn-xs"
@@ -1000,7 +1000,7 @@ export const EvaluationFindingCard: React.FC<EvaluationFindingCardProps> = ({
             {effectiveNotes ? '📝 Note Attached' : '+ Add Review Note'}
           </button>
 
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div className="finding-action-buttons-group" style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
             <button
               type="button"
               className="btn btn-action-accept"

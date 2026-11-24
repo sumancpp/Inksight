@@ -1273,7 +1273,7 @@ export const DemoDashboard: React.FC = () => {
         </div>
 
         {/* Dual Input Modes: Option A (Interactive Upload/Dropzone) vs Option B (Live Camera Scan) */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px', marginBottom: '8px' }}>
+        <div className="dual-input-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px', marginBottom: '8px' }}>
           {/* Option A: Interactive Drag-and-Drop Card */}
           <div
             className={`dropzone-card ${isDragging ? 'dropzone-active' : ''} ${selectedFile ? 'dropzone-has-file' : ''}`}

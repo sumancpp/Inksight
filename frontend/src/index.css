@@ -71,12 +71,17 @@ body {
   flex-direction: column;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+  width: 100%;
+  -webkit-tap-highlight-color: transparent;
 }
 
 #root {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  overflow-x: hidden;
+  width: 100%;
 }
 
 /* Layout */
@@ -84,6 +89,17 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  overflow-x: hidden;
+  width: 100%;
+}
+
+/* Touch action optimization to prevent double-tap zoom delay */
+button,
+.btn,
+[role="button"],
+input[type="button"],
+input[type="submit"] {
+  touch-action: manipulation;
 }
 
 .main-content {
@@ -159,6 +175,28 @@ body {
   color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.06em;
+}
+
+.mobile-menu-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  color: var(--text-primary);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: all 0.2s ease;
+}
+
+.mobile-menu-toggle:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--border-hover);
 }
 
 .navbar-nav {
@@ -1318,4 +1356,262 @@ tr:hover td {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
+}
+
+/* ==========================================================================
+   Mobile Responsiveness & Touch Optimization (< 768px and < 480px)
+   ========================================================================== */
+
+/* Touch Target Minimum Sizing */
+.btn-action-accept,
+.btn-action-flag,
+.btn-action-reject {
+  min-height: 44px;
+  min-width: 44px;
+  touch-action: manipulation;
+}
+
+@media (max-width: 768px) {
+  /* Task 1: Global Layout, Padding & Typography */
+  .main-content {
+    padding: 16px 14px 48px;
+  }
+
+  .navbar {
+    padding: 10px 16px;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+  }
+
+  .mobile-menu-toggle {
+    display: flex;
+  }
+
+  .navbar-nav {
+    display: none;
+  }
+
+  .navbar-nav.mobile-nav-open {
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: #ffffff;
+    border-bottom: 1px solid var(--border-color);
+    box-shadow: 0 12px 24px -4px rgba(15, 23, 42, 0.12);
+    padding: 12px 16px;
+    gap: 8px;
+    z-index: 1000;
+  }
+
+  .navbar-nav.mobile-nav-open .nav-link-btn {
+    width: 100%;
+    justify-content: flex-start;
+    padding: 12px 16px;
+    min-height: 44px;
+    font-size: 0.92rem;
+  }
+
+  .brand-title {
+    font-size: 1.15rem;
+  }
+
+  .brand-edition {
+    font-size: 0.68rem;
+  }
+
+  .dashboard-title {
+    font-size: 1.55rem;
+    line-height: 1.2;
+  }
+
+  .dashboard-subtitle {
+    font-size: 0.88rem;
+    line-height: 1.5;
+  }
+
+  .hero-section-title {
+    font-size: 1.2rem;
+  }
+
+  .hero-section-subtitle {
+    font-size: 0.84rem;
+  }
+
+  .hero-upload-card {
+    padding: 18px 14px;
+  }
+
+  .card {
+    padding: 18px 14px;
+  }
+
+  /* Task 2: Dashboard & Bento KPI Grid (2x2 on mobile) */
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .kpi-card {
+    padding: 12px 14px;
+    gap: 10px;
+  }
+
+  .kpi-value {
+    font-size: 1.35rem;
+  }
+
+  .kpi-label {
+    font-size: 0.72rem;
+  }
+
+  .kpi-subtext {
+    font-size: 0.7rem;
+  }
+
+  .kpi-icon-box {
+    width: 38px;
+    height: 38px;
+    font-size: 1.1rem;
+    border-radius: 10px;
+  }
+
+  /* Dual Upload Modes Stacked Vertically */
+  .dual-input-grid {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+
+  /* Mode Segmented Pill */
+  .mode-segmented-pill {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .mode-segment-btn {
+    flex: 1;
+    justify-content: center;
+    padding: 8px 12px;
+    min-height: 40px;
+    font-size: 0.82rem;
+  }
+
+  /* Diagnostic Question Cards Layout */
+  .finding-card {
+    padding: 16px 14px;
+  }
+
+  .clinical-split-body {
+    grid-template-columns: 1fr !important;
+    gap: 16px;
+  }
+
+  .clinical-right-pane {
+    border-left: none !important;
+    padding-left: 0 !important;
+    border-top: 1px solid var(--border-color);
+    padding-top: 16px;
+  }
+
+  /* Confidence Panel & Touch Targets */
+  .confidence-panel {
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .finding-card-actions-bar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+  }
+
+  .finding-action-buttons-group {
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+
+  .finding-action-buttons-group .btn-action-accept,
+  .finding-action-buttons-group .btn-action-flag,
+  .finding-action-buttons-group .btn-action-reject {
+    width: 100% !important;
+    min-height: 44px !important;
+    justify-content: center !important;
+    font-size: 0.9rem !important;
+    padding: 10px 16px !important;
+  }
+
+  /* Results Tabs */
+  .results-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .tabs-nav {
+    overflow-x: auto;
+    width: 100%;
+    padding-bottom: 4px;
+  }
+
+  .tab-btn {
+    padding: 10px 14px;
+    min-height: 44px;
+    white-space: nowrap;
+    font-size: 0.86rem;
+  }
+
+  /* Task 3: Live Camera Scanner on Mobile */
+  .camera-scanner-overlay {
+    height: 100dvh;
+  }
+
+  .scanner-bottom-bar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+    padding: 14px 16px !important;
+    padding-bottom: max(16px, env(safe-area-inset-bottom)) !important;
+  }
+
+  .scanner-bottom-bar > div {
+    width: 100% !important;
+    display: flex !important;
+    justify-content: center !important;
+  }
+
+  .scanner-bottom-bar .btn {
+    min-height: 46px !important;
+    flex: 1 !important;
+    justify-content: center !important;
+  }
+
+  .scanner-alignment-guide {
+    width: 90% !important;
+    height: 74% !important;
+    border-radius: 12px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Ultra-compact screens */
+  .kpi-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .dashboard-title {
+    font-size: 1.35rem;
+  }
+
+  .brand-text .brand-edition {
+    display: none;
+  }
+
+  .dropzone {
+    padding: 28px 14px;
+  }
 }

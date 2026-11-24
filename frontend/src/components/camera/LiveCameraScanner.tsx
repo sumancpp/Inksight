@@ -383,10 +383,11 @@ export const LiveCameraScanner: React.FC<LiveCameraScannerProps> = ({
 
             {/* Document Target Alignment Guide Overlay */}
             <div
+              className="scanner-alignment-guide"
               style={{
                 position: 'absolute',
-                width: 'min(82%, 620px)',
-                height: 'min(84%, 840px)',
+                width: 'min(88%, 560px)',
+                height: 'min(80%, 760px)',
                 border: '2px dashed rgba(56, 189, 248, 0.65)',
                 borderRadius: '16px',
                 pointerEvents: 'none',
@@ -482,15 +483,17 @@ export const LiveCameraScanner: React.FC<LiveCameraScannerProps> = ({
 
       {/* Bottom Action Control Bar */}
       <div
+        className="scanner-bottom-bar"
         style={{
-          padding: '18px 24px',
+          padding: '16px 20px',
+          paddingBottom: 'max(16px, env(safe-area-inset-bottom))',
           background: 'rgba(15, 23, 42, 0.95)',
           borderTop: '1px solid rgba(255, 255, 255, 0.1)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           flexWrap: 'wrap',
-          gap: '16px',
+          gap: '12px',
         }}
       >
         <div>
