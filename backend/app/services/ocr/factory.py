@@ -15,10 +15,23 @@ def get_ocr_adapter(provider_name: Optional[str] = None) -> BaseOCRAdapter:
     """
     raw_provider = provider_name or os.getenv("OCR_PROVIDER") or settings.OCR_PROVIDER
     provider = str(raw_provider).lower().strip()
-    logger.info(f"[OCRFactory] Selecting OCR provider='{provider}'")
+    is_prod = str(getattr(settings, "ENVIRONMENT", "")).lower().strip() == "production"
+    logger.info(f"[OCRFactory] Selecting OCR provider='{provider}' (environment='{settings.ENVIRONMENT}')")
+
     if provider == "mock":
+        if is_prod:
+            raise RuntimeError(
+                "MockOCRAdapter is disabled in production. Set OCR_PROVIDER=paddleocr in environment variables."
+            )
         return MockOCRAdapter()
     if provider in ["paddleocr", "paddle"]:
+        if is_prod:
+            try:
+                import paddleocr  # noqa: F401
+            except Exception as exc:
+                raise RuntimeError(
+                    f"PaddleOCR failed to import in production: {exc}"
+                ) from exc
         return PaddleOCRAdapter(
             lang=settings.PADDLEOCR_LANG,
             use_angle_cls=settings.PADDLEOCR_USE_ANGLE_CLS,

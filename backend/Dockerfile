@@ -32,7 +32,8 @@ WORKDIR /app
 
 # Install Python dependencies first for optimal Docker layer caching
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt && \
+    python -c "import cv2, paddle, paddleocr; print('PaddleOCR & OpenCV import verified')"
 
 # Copy application source code
 COPY . .
