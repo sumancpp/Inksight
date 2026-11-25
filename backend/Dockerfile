@@ -10,6 +10,7 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PADDLEOCR_HOME=/app/.paddleocr \
     PORT=8000
 
 # Install required Linux system packages for:
@@ -38,8 +39,8 @@ RUN pip install --no-cache-dir -r requirements.txt && \
 # Copy application source code
 COPY . .
 
-# Ensure storage uploads directory exists
-RUN mkdir -p /app/uploads
+# Ensure storage uploads and PaddleOCR model directories exist
+RUN mkdir -p /app/uploads /app/.paddleocr
 
 # Expose FastAPI service port
 EXPOSE 8000

@@ -455,6 +455,7 @@ class PaddleOCRAdapter(BaseOCRAdapter):
         file_path: Path,
         on_progress: Optional[Callable[[int, int], Any]] = None,
     ) -> OCRExtractionData:
+        logger.info(f"PaddleOCR adapter called for file: {file_path}")
         if not file_path.exists():
             raise OCRAdapterError("File not found for extraction", error_code="FILE_NOT_FOUND")
 
@@ -593,6 +594,7 @@ class PaddleOCRAdapter(BaseOCRAdapter):
 
         # 3. Formulate authoritative combined text, overall confidence, and math warning check
         combined_text = "\n\n".join(seg["text"] for seg in structured_segments)
+        logger.info(f"PaddleOCR extracted {len(combined_text)} characters")
         logger.info(f"OCR extracted {len(combined_text)} characters. First 100 chars: {combined_text[:100]}")
         overall_confidence = (
             round(sum(confidences) / len(confidences), 4) if confidences else None

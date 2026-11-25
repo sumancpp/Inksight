@@ -25,13 +25,12 @@ def get_ocr_adapter(provider_name: Optional[str] = None) -> BaseOCRAdapter:
             )
         return MockOCRAdapter()
     if provider in ["paddleocr", "paddle"]:
-        if is_prod:
-            try:
-                import paddleocr  # noqa: F401
-            except Exception as exc:
-                raise RuntimeError(
-                    f"PaddleOCR failed to import in production: {exc}"
-                ) from exc
+        try:
+            import paddleocr  # noqa: F401
+        except Exception as exc:
+            raise RuntimeError(
+                f"PaddleOCR failed to import: {exc}"
+            ) from exc
         return PaddleOCRAdapter(
             lang=settings.PADDLEOCR_LANG,
             use_angle_cls=settings.PADDLEOCR_USE_ANGLE_CLS,
