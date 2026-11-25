@@ -582,6 +582,7 @@ class PaddleOCRAdapter(BaseOCRAdapter):
                     pass
 
         if not structured_segments:
+            logger.info("OCR extracted 0 characters (EMPTY_EXTRACTION).")
             return OCRExtractionData(
                 extracted_text="",
                 structured_segments=[],
@@ -592,6 +593,7 @@ class PaddleOCRAdapter(BaseOCRAdapter):
 
         # 3. Formulate authoritative combined text, overall confidence, and math warning check
         combined_text = "\n\n".join(seg["text"] for seg in structured_segments)
+        logger.info(f"OCR extracted {len(combined_text)} characters. First 100 chars: {combined_text[:100]}")
         overall_confidence = (
             round(sum(confidences) / len(confidences), 4) if confidences else None
         )

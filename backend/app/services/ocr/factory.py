@@ -1,5 +1,7 @@
+import os
 from typing import Optional
 from app.core.config import settings
+from app.core.logging import logger
 from app.services.ocr.base import BaseOCRAdapter
 from app.services.ocr.mock_adapter import MockOCRAdapter
 from app.services.ocr.paddle_adapter import PaddleOCRAdapter
@@ -11,7 +13,9 @@ def get_ocr_adapter(provider_name: Optional[str] = None) -> BaseOCRAdapter:
     Explicitly supports 'paddleocr' (real OCR) and 'mock' (test/demo).
     Never silently switches providers on failure.
     """
-    provider = (provider_name or settings.OCR_PROVIDER).lower().strip()
+    raw_provider = provider_name or os.getenv("OCR_PROVIDER") or settings.OCR_PROVIDER
+    provider = str(raw_provider).lower().strip()
+    logger.info(f"[OCRFactory] Selecting OCR provider='{provider}'")
     if provider == "mock":
         return MockOCRAdapter()
     if provider in ["paddleocr", "paddle"]:
