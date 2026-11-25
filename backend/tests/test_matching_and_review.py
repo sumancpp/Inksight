@@ -798,3 +798,60 @@ def test_unreviewed_or_unmatched_proposals_block_evaluation(client: TestClient, 
         assert batch_eval2.json()["total_runs"] >= 1
 
 
+def test_proposed_answers_zero_qp_mode_returns_200_empty(client: TestClient, db_session: Session):
+    """
+    Verifies that in Zero-QP mode (when an assessment has no predefined questions),
+    GET /api/v1/answer-sheets/{upload_id}/proposed-answers returns 200 OK with empty proposals
+    rather than raising a 422 error.
+    """
+    teacher = User(
+        full_name="Zero QP Teacher",
+        email="zeroqp.matching@inksight.edu",
+        role=UserRole.TEACHER.value,
+        is_active=True,
+    )
+    db_session.add(teacher)
+    db_session.commit()
+
+    assessment = Assessment(
+        title="Zero-QP Assessment (DocScanner)",
+        description="Isolated Zero-QP Assessment without predefined questions",
+        created_by=teacher.id,
+    )
+    db_session.add(assessment)
+    db_session.commit()
+
+    submission = Submission(
+        assessment_id=assessment.id,
+        student_id=teacher.id,
+        status="submitted",
+    )
+    db_session.add(submission)
+    db_session.commit()
+
+    upload = AnswerSheetUpload(
+        submission_id=submission.id,
+        original_filename="DocScanner.pdf",
+        stored_filename="docscanner_test.pdf",
+        content_type="application/pdf",
+        file_size_bytes=1024,
+        storage_path="/tmp/docscanner_test.pdf",
+        upload_status=UploadStatus.EXTRACTED.value,
+    )
+    db_session.add(upload)
+    db_session.commit()
+
+    from tests.conftest import auth_headers_for_user
+    resp = client.get(
+        f"/api/v1/answer-sheets/{upload.id}/proposed-answers",
+        headers=auth_headers_for_user(teacher),
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["upload_id"] == upload.id
+    assert data["total_questions"] == 0
+    assert data["proposals"] == []
+    assert "No answers could be matched" in data["message"]
+
+
+

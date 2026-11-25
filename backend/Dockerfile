@@ -13,7 +13,7 @@ ENV PYTHONUNBUFFERED=1 \
     PORT=8000
 
 # Install required Linux system packages for:
-# - PaddleOCR / OpenCV: libgl1, libglib2.0-0, libgomp1
+# - PaddleOCR / OpenCV: libgl1, libglib2.0-0, libgomp1, libsm6, libxext6, libxrender-dev
 # - python-magic MIME detection: libmagic1
 # - build essentials & curl for health checks
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -22,6 +22,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \
     libglib2.0-0 \
     libgomp1 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
     libmagic1 \
     && rm -rf /var/lib/apt/lists/*
 

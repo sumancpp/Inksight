@@ -53,6 +53,7 @@ class AnswerMatchingResponse(BaseModel):
     proposals: List[ProposedAnswerRead]
     unmatched_segments: List[UnmatchedSegmentInfo]
     unanswered_questions: List[UnansweredQuestionInfo]
+    message: Optional[str] = None
 
 
 class TeacherApproveRequest(BaseModel):

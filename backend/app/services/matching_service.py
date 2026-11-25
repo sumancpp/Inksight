@@ -161,7 +161,7 @@ class AnswerMatchingService:
         if submission_id is None:
             if upload_id is None:
                 raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                     detail="Either submission_id or upload_id must be provided.",
                 )
             target_upload = db.query(AnswerSheetUpload).filter(AnswerSheetUpload.id == upload_id).first()
@@ -204,23 +204,7 @@ class AnswerMatchingService:
             submission_id = new_sub.id
 
 
-        # 2. Retrieve assessment questions
-        questions: List[Question] = (
-            db.query(Question)
-            .filter(Question.assessment_id == submission.assessment_id)
-            .order_by(Question.id.asc())
-            .all()
-        )
-        if not questions:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"No questions found for assessment id {submission.assessment_id}.",
-            )
-
-        seq_to_question = {i + 1: q for i, q in enumerate(questions)}
-        qid_to_seq = {q.id: i + 1 for i, q in enumerate(questions)}
-
-        # 3. Locate target upload and latest OCR extraction
+        # 2. Locate target upload first so Zero-QP fallback can return a valid upload_id
         if upload_id is not None:
             upload = (
                 db.query(AnswerSheetUpload)
@@ -248,6 +232,34 @@ class AnswerMatchingService:
                     detail=f"No answer sheet uploads found for submission {submission_id}.",
                 )
 
+        # 3. Retrieve assessment questions
+        questions: List[Question] = (
+            db.query(Question)
+            .filter(Question.assessment_id == submission.assessment_id)
+            .order_by(Question.id.asc())
+            .all()
+        )
+        if not questions:
+            logger.info(
+                f"No predefined questions found for assessment {submission.assessment_id} (Zero-QP mode). Returning empty AnswerMatchingResponse."
+            )
+            return AnswerMatchingResponse(
+                submission_id=submission.id,
+                upload_id=upload.id,
+                assessment_id=submission.assessment_id,
+                total_questions=0,
+                matched_count=0,
+                needs_review_count=0,
+                unmatched_count=0,
+                proposals=[],
+                unmatched_segments=[],
+                unanswered_questions=[],
+                message="No answers could be matched. Please check OCR quality or use Zero-QP inferred questions.",
+            )
+
+        seq_to_question = {i + 1: q for i, q in enumerate(questions)}
+        qid_to_seq = {q.id: i + 1 for i, q in enumerate(questions)}
+
         extraction = (
             db.query(OCRExtraction)
             .filter(OCRExtraction.upload_id == upload.id)
@@ -261,8 +273,8 @@ class AnswerMatchingService:
             )
         if extraction.processing_status == UploadStatus.FAILED.value:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"Cannot match answers: OCR extraction for upload {upload.id} failed.",
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=f"No answers could be matched. Please check OCR quality. (OCR extraction for upload {upload.id} failed.)",
             )
 
         # 4. Check existing authoritative answers
@@ -378,7 +390,7 @@ class AnswerMatchingService:
             # Ensure matched question belongs to assessment
             if matched_q.assessment_id != submission.assessment_id:
                 raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                     detail=f"Question {matched_q.id} does not belong to assessment {submission.assessment_id}.",
                 )
 
@@ -549,7 +561,7 @@ class AnswerMatchingService:
             )
         if reviewer.role not in [UserRole.TEACHER.value, UserRole.ADMIN.value]:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=f"Reviewer user {reviewer_id} does not have the teacher or admin role.",
             )
         return reviewer
@@ -572,7 +584,7 @@ class AnswerMatchingService:
         target_qid = request.question_id if request.question_id is not None else proposal.question_id
         if target_qid is None:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="Cannot approve an unmatched proposal without assigning a question.",
             )
 
@@ -590,7 +602,7 @@ class AnswerMatchingService:
         question = db.query(Question).filter(Question.id == target_qid).first()
         if not question or question.assessment_id != submission.assessment_id:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="Matched question does not belong to the submission's assessment.",
             )
 
@@ -685,14 +697,14 @@ class AnswerMatchingService:
         target_qid = request.question_id if request.question_id is not None else proposal.question_id
         if target_qid is None:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="Cannot correct an unmatched proposal without assigning a question.",
             )
 
         corrected = request.corrected_text.strip()
         if not corrected:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="Corrected answer text cannot be empty.",
             )
 
@@ -704,7 +716,7 @@ class AnswerMatchingService:
         question = db.query(Question).filter(Question.id == target_qid).first()
         if not question or question.assessment_id != submission.assessment_id:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="Target question does not belong to the submission's assessment.",
             )
 
